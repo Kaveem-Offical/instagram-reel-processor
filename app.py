@@ -49,7 +49,7 @@ class VideoProcessor:
             return False
     
     def download_instagram_reel(self, url, output_path):
-        """Download Instagram reel using yt-dlp with optimized settings"""
+        """Download Instagram reel using yt-dlp with cookies"""
         try:
             ydl_opts = {
                 'outtmpl': output_path,
@@ -60,12 +60,14 @@ class VideoProcessor:
                 'writethumbnail': False,
                 'writeinfojson': False,
                 'ignoreerrors': True,
+                'cookies': 'cookies.txt',  # 🔥 path to your cookies.txt
             }
-            
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            
-            return os.path.exists(output_path)
+                info = ydl.extract_info(url, download=True)
+                caption = info.get("description") or info.get("title") or "No caption found"
+        
+                return os.path.exists(output_path), caption
         except Exception as e:
             logger.error(f"Error downloading reel: {str(e)}")
             return False
@@ -202,10 +204,11 @@ class VideoProcessor:
                 logger.info(f"Job {job_id}: Downloading reel from {instagram_url}")
                 processing_results[job_id]["progress"] = 20
                 
-                if not self.download_instagram_reel(instagram_url, str(downloaded_video)):
+                download_success, caption = self.download_instagram_reel(instagram_url, str(downloaded_video))
+                if not download_success:
                     processing_results[job_id] = {"status": "error", "message": "Failed to download reel"}
                     return
-                
+
                 # Step 2: Get video info
                 width, height, duration = self.get_video_info(str(downloaded_video))
                 if width is None or height is None:
@@ -257,7 +260,8 @@ class VideoProcessor:
                     "progress": 100,
                     "cloudinary_url": cloudinary_url,
                     "original_dimensions": f"{width}x{height}",
-                    "duration": duration
+                    "duration": duration,
+                    "caption": caption or "No caption available"
                 }
                 
                 logger.info(f"Job {job_id}: Successfully processed. URL: {cloudinary_url}")

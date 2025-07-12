@@ -5,19 +5,20 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    wget \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ffmpeg curl wget git && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Set work directory
+WORKDIR /app
+
+# Copy requirements first for caching
 COPY requirements.txt .
+COPY cookies.txt /app/cookies.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy the rest of the app code
 COPY . .
 
 # Create uploads directory
