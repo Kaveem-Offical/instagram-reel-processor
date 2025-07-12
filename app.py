@@ -37,7 +37,7 @@ processing_results = {}
 
 class VideoProcessor:
     def __init__(self):
-        self.outro_image_path = "outro.jpg"
+        self.outro_image_path = "outro.png"
         
     def validate_instagram_url(self, url):
         """Validate Instagram URL"""
