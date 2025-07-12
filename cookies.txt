@@ -1,1 +1,15 @@
-ig_did=4E920529-B6E0-407E-A263-358B397B9381;ig_nrcb=1;ps_l=1;ps_n=1;csrftoken=BbwZRx0drRgBBPcvDiISKU3tx1Eo1iZ8;ds_user_id=68619228024;mid=aFWPPwALAAHN5CNrDs4Sy4GJ4V08;dpr=1.5;sessionid=68619228024%3ArYuS6WDyphBkDH%3A6%3AAYfxRy79Jph-9dcHtMXekEAOZmatmjCLP-Gqvd3bOg;wd=915x591;rur="VLL\05468619228024\0541783866457:01fe1195b75fef85ee68cdae5eaae19f2d572e632e8009a5804c0397264ecc5d3594a38b"
+# Netscape HTTP Cookie File
+# http://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
+
+.instagram.com	TRUE	/	TRUE	1759514228	ig_did	4E920529-B6E0-407E-A263-358B397B9381
+.instagram.com	TRUE	/	TRUE	1759514232	ig_nrcb	1
+.instagram.com	TRUE	/	TRUE	1759514266	ps_l	1
+.instagram.com	TRUE	/	TRUE	1759514266	ps_n	1
+.instagram.com	TRUE	/	TRUE	1767884723	csrftoken	BbwZRx0drRgBBPcvDiISKU3tx1Eo1iZ8
+.instagram.com	TRUE	/	TRUE	1760108723	ds_user_id	68619228024
+.instagram.com	TRUE	/	TRUE	1765989696	mid	aFWPPwALAAHN5CNrDs4Sy4GJ4V08
+.instagram.com	TRUE	/	TRUE	1752937519	dpr	1.5
+.instagram.com	TRUE	/	TRUE	1767882412	sessionid	68619228024%3ArYuS6WDyphBkDH%3A6%3AAYfxRy79Jph-9dcHtMXekEAOZmatmjCLP-Gqvd3bOg
+.instagram.com	TRUE	/	TRUE	1752937519	wd	1280x591
+.instagram.com	TRUE	/	TRUE	0	rur	"VLL\05468619228024\0541783868726:01fe4b05f8bef46c6382a6331e1fb131ed952ddfe7a3e04b0fc1f8d92268b6e33b93bea2"

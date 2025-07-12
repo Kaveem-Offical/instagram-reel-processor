@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Copy requirements first for caching
 COPY requirements.txt .
-COPY cookies.txt /app/cookies.txt
+COPY cookies.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt

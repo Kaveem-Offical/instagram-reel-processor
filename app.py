@@ -38,6 +38,7 @@ processing_results = {}
 class VideoProcessor:
     def __init__(self):
         self.outro_image_path = "outro.png"
+        self.cookies_file = "cookies.txt"  # Use the copied cookies file
         
     def validate_instagram_url(self, url):
         """Validate Instagram URL"""
@@ -48,28 +49,125 @@ class VideoProcessor:
         except:
             return False
     
-    def download_instagram_reel(self, url, output_path):
-        """Download Instagram reel using yt-dlp with cookies"""
+    def check_cookies_file(self):
+        """Check if cookies file exists and is readable"""
+        if not os.path.exists(self.cookies_file):
+            logger.error(f"Cookies file not found at {self.cookies_file}")
+            return False
+        
         try:
+            with open(self.cookies_file, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    logger.error("Cookies file is empty")
+                    return False
+                logger.info(f"Cookies file found with {len(content.splitlines())} lines")
+                return True
+        except Exception as e:
+            logger.error(f"Error reading cookies file: {str(e)}")
+            return False
+    
+    def download_instagram_reel(self, url, output_path):
+        """Download Instagram reel using yt-dlp with cookies and multiple fallback methods"""
+        logger.info(f"Starting download for URL: {url}")
+        
+        # Method 1: Using cookies file
+        if self.check_cookies_file():
+            try:
+                logger.info("Attempting download with cookies file...")
+                ydl_opts = {
+                    'outtmpl': output_path,
+                    'format': 'best[height<=1080][ext=mp4]/best[ext=mp4]/best',
+                    'cookiefile': self.cookies_file,
+                    'quiet': False,
+                    'no_warnings': False,
+                    'extract_flat': False,
+                    'writethumbnail': False,
+                    'writeinfojson': False,
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'none',
+                        'Cache-Control': 'max-age=0',
+                    },
+                    'sleep_interval': 1,
+                    'max_sleep_interval': 3,
+                    'retries': 3,
+                }
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                
+                if os.path.exists(output_path):
+                    logger.info("Successfully downloaded using cookies method")
+                    return True
+                    
+            except Exception as e:
+                logger.error(f"Cookies method failed: {str(e)}")
+        
+        # Method 2: Using credentials if available
+        username = os.environ.get('INSTAGRAM_USERNAME')
+        password = os.environ.get('INSTAGRAM_PASSWORD')
+        
+        if username and password:
+            try:
+                logger.info("Attempting download with username/password...")
+                ydl_opts = {
+                    'outtmpl': output_path,
+                    'format': 'best[height<=1080][ext=mp4]/best[ext=mp4]/best',
+                    'username': username,
+                    'password': password,
+                    'quiet': False,
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    },
+                    'sleep_interval': 2,
+                    'max_sleep_interval': 5,
+                    'retries': 2,
+                }
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                
+                if os.path.exists(output_path):
+                    logger.info("Successfully downloaded using credentials method")
+                    return True
+                    
+            except Exception as e:
+                logger.error(f"Credentials method failed: {str(e)}")
+        
+        # Method 3: Basic attempt without authentication (last resort)
+        try:
+            logger.info("Attempting basic download without authentication...")
             ydl_opts = {
                 'outtmpl': output_path,
-                'format': 'best[height<=1080][ext=mp4]/best[ext=mp4]',
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False,
-                'writethumbnail': False,
-                'writeinfojson': False,
-                'ignoreerrors': True,
-                'cookies': 'cookies.txt',  # 🔥 path to your cookies.txt
+                'format': 'best[height<=1080][ext=mp4]/best[ext=mp4]/best',
+                'quiet': False,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                },
+                'sleep_interval': 3,
+                'retries': 1,
             }
-
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-
-            return os.path.exists(output_path)
+            
+            if os.path.exists(output_path):
+                logger.info("Successfully downloaded using basic method")
+                return True
+                
         except Exception as e:
-            logger.error(f"Error downloading reel: {str(e)}")
-            return False
+            logger.error(f"Basic method failed: {str(e)}")
+        
+        logger.error("All download methods failed")
+        return False
 
     def get_video_info(self, video_path):
         """Get video dimensions and duration using ffprobe"""
@@ -81,6 +179,7 @@ class VideoProcessor:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.returncode != 0:
+                logger.error(f"ffprobe failed: {result.stderr}")
                 return None, None, None
                 
             data = json.loads(result.stdout)
@@ -106,15 +205,20 @@ class VideoProcessor:
         try:
             cmd = [
                 'ffmpeg', '-i', input_path,
-                '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
-                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black',
+                '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
                 '-c:a', 'aac', '-b:a', '128k',
                 '-movflags', '+faststart',
                 '-y', output_path
             ]
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-            return result.returncode == 0 and os.path.exists(output_path)
+            
+            if result.returncode != 0:
+                logger.error(f"ffmpeg resize failed: {result.stderr}")
+                return False
+                
+            return os.path.exists(output_path)
         except Exception as e:
             logger.error(f"Error resizing video: {str(e)}")
             return False
@@ -123,12 +227,12 @@ class VideoProcessor:
         """Create 5-second outro video from image"""
         try:
             if not os.path.exists(self.outro_image_path):
-                logger.error("Outro image not found")
+                logger.error(f"Outro image not found at {self.outro_image_path}")
                 return False
             
             cmd = [
                 'ffmpeg', '-loop', '1', '-t', '5', '-i', self.outro_image_path,
-                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
                 '-pix_fmt', 'yuv420p',
                 '-vf', 'scale=1080:1920,setsar=1',
                 '-r', '30', '-movflags', '+faststart',
@@ -136,13 +240,18 @@ class VideoProcessor:
             ]
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            return result.returncode == 0 and os.path.exists(outro_video_path)
+            
+            if result.returncode != 0:
+                logger.error(f"ffmpeg outro creation failed: {result.stderr}")
+                return False
+                
+            return os.path.exists(outro_video_path)
         except Exception as e:
             logger.error(f"Error creating outro video: {str(e)}")
             return False
 
     def concatenate_videos(self, main_video_path, outro_video_path, output_path):
-        """Concatenate main video with outro using filter_complex for better compatibility"""
+        """Concatenate main video with outro using filter_complex"""
         try:
             cmd = [
                 'ffmpeg',
@@ -150,14 +259,19 @@ class VideoProcessor:
                 '-i', outro_video_path,
                 '-filter_complex', '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]',
                 '-map', '[v]', '-map', '[a]',
-                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
                 '-c:a', 'aac', '-b:a', '128k',
                 '-movflags', '+faststart',
                 '-y', output_path
             ]
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-            return result.returncode == 0 and os.path.exists(output_path)
+            
+            if result.returncode != 0:
+                logger.error(f"ffmpeg concatenation failed: {result.stderr}")
+                return False
+                
+            return os.path.exists(output_path)
         except Exception as e:
             logger.error(f"Error concatenating videos: {str(e)}")
             return False
@@ -172,13 +286,16 @@ class VideoProcessor:
                 'unique_filename': True,
                 'overwrite': True,
                 'quality': 'auto',
-                'format': 'mp4'
+                'format': 'mp4',
+                'timeout': 300
             }
             
             if public_id:
                 upload_options['public_id'] = public_id
             
+            logger.info(f"Uploading video to Cloudinary: {file_path}")
             result = cloudinary.uploader.upload(file_path, **upload_options)
+            logger.info(f"Successfully uploaded to Cloudinary: {result['secure_url']}")
             return result['secure_url']
         except Exception as e:
             logger.error(f"Error uploading to Cloudinary: {str(e)}")
@@ -187,10 +304,10 @@ class VideoProcessor:
     def process_video(self, instagram_url, job_id):
         """Main video processing function"""
         try:
-            processing_results[job_id] = {"status": "processing", "progress": 0}
+            processing_results[job_id] = {"status": "processing", "progress": 0, "message": "Starting processing..."}
             
             # Create temporary directory
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(dir="/app/temp") as temp_dir:
                 temp_path = Path(temp_dir)
                 
                 # Define file paths
@@ -201,26 +318,26 @@ class VideoProcessor:
                 
                 # Step 1: Download Instagram reel
                 logger.info(f"Job {job_id}: Downloading reel from {instagram_url}")
-                processing_results[job_id]["progress"] = 20
+                processing_results[job_id].update({"progress": 20, "message": "Downloading Instagram reel..."})
                 
                 if not self.download_instagram_reel(instagram_url, str(downloaded_video)):
-                    processing_results[job_id] = {"status": "error", "message": "Failed to download reel"}
+                    processing_results[job_id] = {"status": "error", "message": "Failed to download reel. Please check if the URL is valid and accessible."}
                     return
                 
                 # Step 2: Get video info
+                processing_results[job_id].update({"progress": 30, "message": "Analyzing video..."})
                 width, height, duration = self.get_video_info(str(downloaded_video))
                 if width is None or height is None:
-                    processing_results[job_id] = {"status": "error", "message": "Failed to get video info"}
+                    processing_results[job_id] = {"status": "error", "message": "Failed to analyze video properties"}
                     return
                 
                 logger.info(f"Job {job_id}: Video info - {width}x{height}, {duration}s")
-                processing_results[job_id]["progress"] = 30
                 
                 # Step 3: Resize if needed
                 video_to_process = downloaded_video
                 if width != 1080 or height != 1920:
                     logger.info(f"Job {job_id}: Resizing video from {width}x{height} to 1080x1920")
-                    processing_results[job_id]["progress"] = 40
+                    processing_results[job_id].update({"progress": 40, "message": "Resizing video to portrait format..."})
                     
                     if not self.resize_video_to_portrait(str(downloaded_video), str(resized_video)):
                         processing_results[job_id] = {"status": "error", "message": "Failed to resize video"}
@@ -229,7 +346,7 @@ class VideoProcessor:
                 
                 # Step 4: Create outro video
                 logger.info(f"Job {job_id}: Creating outro video")
-                processing_results[job_id]["progress"] = 60
+                processing_results[job_id].update({"progress": 60, "message": "Creating outro..."})
                 
                 if not self.create_outro_video(str(outro_video)):
                     processing_results[job_id] = {"status": "error", "message": "Failed to create outro video"}
@@ -237,25 +354,26 @@ class VideoProcessor:
                 
                 # Step 5: Concatenate videos
                 logger.info(f"Job {job_id}: Concatenating videos")
-                processing_results[job_id]["progress"] = 80
+                processing_results[job_id].update({"progress": 80, "message": "Combining videos..."})
                 
                 if not self.concatenate_videos(str(video_to_process), str(outro_video), str(final_video)):
-                    processing_results[job_id] = {"status": "error", "message": "Failed to concatenate videos"}
+                    processing_results[job_id] = {"status": "error", "message": "Failed to combine videos"}
                     return
                 
                 # Step 6: Upload to Cloudinary
                 logger.info(f"Job {job_id}: Uploading to Cloudinary")
-                processing_results[job_id]["progress"] = 90
+                processing_results[job_id].update({"progress": 90, "message": "Uploading to cloud..."})
                 
                 cloudinary_url = self.upload_to_cloudinary(str(final_video), f"processed_{job_id}")
                 if not cloudinary_url:
-                    processing_results[job_id] = {"status": "error", "message": "Failed to upload to Cloudinary"}
+                    processing_results[job_id] = {"status": "error", "message": "Failed to upload to cloud storage"}
                     return
                 
                 # Success
                 processing_results[job_id] = {
                     "status": "completed",
                     "progress": 100,
+                    "message": "Processing completed successfully!",
                     "cloudinary_url": cloudinary_url,
                     "original_dimensions": f"{width}x{height}",
                     "duration": duration
@@ -291,9 +409,11 @@ worker_thread.start()
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    cookies_status = processor.check_cookies_file()
     return jsonify({
         "status": "healthy",
         "message": "Server is running",
+        "cookies_available": cookies_status,
         "queue_size": processing_queue.qsize(),
         "active_jobs": len(processing_results)
     })
@@ -310,7 +430,11 @@ def process_reel():
         
         # Validate URL
         if not processor.validate_instagram_url(instagram_url):
-            return jsonify({"error": "Invalid Instagram URL"}), 400
+            return jsonify({"error": "Invalid Instagram URL. Please provide a valid Instagram reel or post URL."}), 400
+        
+        # Check if cookies are available
+        if not processor.check_cookies_file():
+            logger.warning("No cookies available - this may cause download failures")
         
         # Generate job ID
         job_id = str(uuid.uuid4())
@@ -364,5 +488,9 @@ def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
+    # Check setup on startup
+    logger.info("Starting Instagram Reel Processor...")
+    logger.info(f"Cookies available: {processor.check_cookies_file()}")
+    
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
