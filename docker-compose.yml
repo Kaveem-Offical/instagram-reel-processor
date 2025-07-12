@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  instagram-processor:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - FLASK_ENV=production
+    volumes:
+      - ./temp:/app/temp
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

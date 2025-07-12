@@ -1,0 +1,6 @@
+Flask==2.3.3
+yt-dlp==2023.10.13
+cloudinary==1.36.0
+gunicorn==21.2.0
+Werkzeug==2.3.7
+pathlib==1.0.1
